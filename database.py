@@ -482,3 +482,12 @@ def is_demo_tenant(tenant_id: str) -> bool:
     row = conn.execute("SELECT is_demo FROM tenants WHERE tenant_id = ?", (tenant_id,)).fetchone()
     conn.close()
     return bool(row and row["is_demo"])
+
+
+def get_demo_tenant_id():
+    """Returns the shared platform Demo tenant's id, or None if it hasn't
+    been bootstrapped yet (see app.py's ensure_demo_tenant())."""
+    conn = get_connection()
+    row = conn.execute("SELECT tenant_id FROM tenants WHERE is_demo = TRUE LIMIT 1").fetchone()
+    conn.close()
+    return row["tenant_id"] if row else None

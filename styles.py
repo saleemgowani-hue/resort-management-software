@@ -22,7 +22,15 @@ def inject_css():
 
         html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
-        #MainMenu, footer, header {visibility: hidden;}
+        /* Hide the hamburger menu, footer and Deploy/toolbar actions, but
+           keep the header bar itself (it hosts the sidebar expand/collapse
+           button, which is the ONLY way to open the sidebar on mobile —
+           hiding the whole header used to hide that button too). */
+        #MainMenu, footer, [data-testid="stToolbarActions"], [data-testid="stAppDeployButton"] {visibility: hidden;}
+        header[data-testid="stHeader"] {
+            background: rgba(0, 0, 0, 0);
+            box-shadow: none;
+        }
 
         .block-container { padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1400px; }
 
@@ -132,6 +140,14 @@ def inject_css():
             section[data-testid="stSidebar"] .stButton button {
                 font-size: 13.5px;
                 padding: 9px 12px;
+            }
+
+            header[data-testid="stHeader"] {
+                min-height: 2.75rem;
+            }
+            [data-testid="stSidebarCollapsedControl"] {
+                visibility: visible !important;
+                display: block !important;
             }
         }
 
