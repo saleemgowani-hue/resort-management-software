@@ -32,6 +32,22 @@ def inject_css():
             box-shadow: none;
         }
 
+        /* The sidebar's expand button (shown when the sidebar is collapsed,
+           which is the ONLY way back into the menu on mobile) renders as a
+           faint 60%-opacity grey icon on a plain white header - easy to miss
+           on a phone. Give it a solid, high-contrast pill so it reads as an
+           obvious button. */
+        [data-testid="stExpandSidebarButton"] {
+            background: #1e3a8a !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        [data-testid="stExpandSidebarButton"] span[data-testid="stIconMaterial"],
+        [data-testid="stExpandSidebarButton"] span {
+            color: white !important;
+            opacity: 1 !important;
+        }
+
         .block-container { padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1400px; }
 
         /* ---------------- Brand header ---------------- */
