@@ -12,7 +12,7 @@ import datetime as dt
 import streamlit as st
 
 from config import APP_TITLE, COMPANY_NAME, PRODUCT_NAME, DEMO_USERNAME, DEMO_PASSWORD
-from database import init_db, get_connection, create_tenant, is_demo_tenant, new_id
+from database import init_db, get_connection, create_tenant, is_demo_tenant, get_demo_tenant_id, new_id
 import auth
 import license as licence_engine
 from styles import inject_css, SIDEBAR_COLORS
@@ -85,6 +85,14 @@ def ensure_demo_tenant():
 
 ensure_demo_tenant()
 
+# Keep the shared Demo account clean: wipe + reseed it back to the fixed
+# sample dataset at most once an hour, so anything a visitor actually types
+# into the demo never lingers past ~60 minutes.
+_demo_tenant_id = get_demo_tenant_id()
+if _demo_tenant_id:
+    import demo_data
+    demo_data.reset_demo_tenant_if_stale(_demo_tenant_id, max_age_minutes=60)
+
 
 # ---------------------------------------------------------------------------
 # AUTH SCREENS
@@ -135,6 +143,7 @@ def render_auth_screens():
 
             st.markdown("---")
             st.caption("Just want to look around first?")
+            st.info(f"🔑 Demo Login — Username: **{DEMO_USERNAME}**  |  Password: **{DEMO_PASSWORD}**")
             if st.button("👀 Try the Live Demo (no signup needed)", use_container_width=True):
                 success, message, user = auth.sign_in(DEMO_USERNAME, DEMO_PASSWORD)
                 if success:

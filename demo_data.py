@@ -327,6 +327,50 @@ def seed_demo_data(tenant_id, created_by: str = "system"):
     return True, "Demo data added successfully! Explore Dashboard, Reservations, Rooms and Reports to see it."
 
 
+RESET_MARKER_KEY = "demo_last_reset_at"
+
+
+def reset_demo_tenant_if_stale(tenant_id, max_age_minutes: int = 60):
+    """
+    Keeps the shared platform Demo tenant clean: any real booking/guest/etc.
+    that a visitor adds while exploring the demo is wiped and the tenant is
+    restored to the fixed sample dataset at most `max_age_minutes` after the
+    last reset. Cheap on every call (one SELECT) - the expensive wipe+reseed
+    only runs once per window, called from app.py on every app load.
+    """
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT flag_value FROM app_flags WHERE tenant_id = ? AND flag_key = ?",
+        (tenant_id, RESET_MARKER_KEY),
+    ).fetchone()
+    conn.close()
+
+    now = dt.datetime.utcnow()
+    stale = True
+    if row and row["flag_value"]:
+        try:
+            last_reset = dt.datetime.fromisoformat(row["flag_value"])
+            stale = (now - last_reset) >= dt.timedelta(minutes=max_age_minutes)
+        except ValueError:
+            stale = True
+
+    if not stale:
+        return False
+
+    clear_demo_data(tenant_id)
+    seed_demo_data(tenant_id, created_by="system")
+
+    conn = get_connection()
+    conn.execute(
+        """INSERT INTO app_flags (tenant_id, flag_key, flag_value) VALUES (?, ?, ?)
+           ON CONFLICT (tenant_id, flag_key) DO UPDATE SET flag_value = ?""",
+        (tenant_id, RESET_MARKER_KEY, now.isoformat(), now.isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
 def clear_demo_data(tenant_id):
     """
     Wipes ALL of THIS TENANT's transactional data (bookings, guests, payments,
