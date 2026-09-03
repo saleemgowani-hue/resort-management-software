@@ -15,6 +15,8 @@ tables if they want to start over with a clean slate before going live.
 import datetime as dt
 import json
 import random
+import threading
+import time
 
 from database import get_connection, new_id
 
@@ -369,6 +371,44 @@ def reset_demo_tenant_if_stale(tenant_id, max_age_minutes: int = 60):
     conn.commit()
     conn.close()
     return True
+
+
+_scheduler_thread = None
+_scheduler_lock = threading.Lock()
+
+
+def start_background_reset_scheduler(get_tenant_id_fn, max_age_minutes: int = 60, poll_seconds: int = 30):
+    """
+    Runs the 60-minute Demo-tenant reset as a real background thread inside
+    the Streamlit process, instead of only checking on a page load. Once
+    started, this thread polls every `poll_seconds` and fires
+    reset_demo_tenant_if_stale() the moment `max_age_minutes` has actually
+    elapsed since the last reset - so the reset happens on schedule even if
+    nobody is clicking around the app at that exact moment. It only stops
+    if the whole app process stops (e.g. Streamlit Cloud puts an idle app
+    to sleep - restarting it re-enters this function and resumes the timer
+    from the last recorded reset in app_flags, since that lives in the DB).
+
+    Safe to call on every rerun / every session: a process-wide lock+flag
+    ensures only the very first call actually starts the thread.
+    """
+    global _scheduler_thread
+    with _scheduler_lock:
+        if _scheduler_thread is not None:
+            return
+
+        def _loop():
+            while True:
+                try:
+                    tenant_id = get_tenant_id_fn()
+                    if tenant_id:
+                        reset_demo_tenant_if_stale(tenant_id, max_age_minutes=max_age_minutes)
+                except Exception:
+                    pass  # never let a transient DB hiccup kill the scheduler thread
+                time.sleep(poll_seconds)
+
+        _scheduler_thread = threading.Thread(target=_loop, daemon=True, name="demo-reset-scheduler")
+        _scheduler_thread.start()
 
 
 def clear_demo_data(tenant_id):

@@ -85,13 +85,13 @@ def ensure_demo_tenant():
 
 ensure_demo_tenant()
 
-# Keep the shared Demo account clean: wipe + reseed it back to the fixed
-# sample dataset at most once an hour, so anything a visitor actually types
-# into the demo never lingers past ~60 minutes.
-_demo_tenant_id = get_demo_tenant_id()
-if _demo_tenant_id:
-    import demo_data
-    demo_data.reset_demo_tenant_if_stale(_demo_tenant_id, max_age_minutes=60)
+# Keep the shared Demo account clean: a background thread (started once per
+# app process, harmless to re-trigger on every rerun/session) wipes and
+# reseeds it back to the fixed sample dataset exactly 60 minutes after the
+# last reset, whether or not anyone happens to be clicking around the app
+# at that moment.
+import demo_data
+demo_data.start_background_reset_scheduler(get_demo_tenant_id, max_age_minutes=60)
 
 
 # ---------------------------------------------------------------------------
